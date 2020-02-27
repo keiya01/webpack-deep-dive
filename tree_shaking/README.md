@@ -58,3 +58,4 @@ module.exports = {
 # 参考
 - webpackの仕組みを簡潔に説明する ... https://blog.hiroppy.me/entry/mechanism-of-webpack
 - Document why tree shaking is not performed on async chunks - GitHub ... https://github.com/webpack/webpack.js.org/issues/2684
+- webpackのTree Shakingを理解して不要なコードがバンドルされるのを防ぐ - Qiita ... https://qiita.com/soarflat/items/755bbbcd6eb81bd128c4
