@@ -7,7 +7,7 @@
   - [コードの重複を防ぐ](#コードの重複を防ぐ)
   - [ダイナミックインポート](#ダイナミックインポート)
 - [Minify](#Minify)
-- [Tree Shaking](https://github.com/keiya01/webpack-deep-dive/tree_shaking)
+- [Tree Shaking](#Tree-Shaking)
 - [Cache](#Cache)
   - [ブラウザ Cache について](#ブラウザ-Cache-について)
   - [strategy](#strategy)
@@ -72,6 +72,9 @@ Code Splitting - create-react-app ... https://create-react-app.dev/docs/code-spl
 
 # Minify
 Reactでは Production Mode でビルドすることで、自動的にminifyしてくれる(webpack v4 以降)
+
+# Tree Shaking
+[Tree Shaking](https://github.com/keiya01/webpack-deep-dive/tree/master/tree_shaking)を参照してください。
 
 # Cache  
 
