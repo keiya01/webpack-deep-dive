@@ -1,4 +1,4 @@
-# Deep Dive Webpack
+# Webpack Deep Dive
 
 - [About](#About)
 - [Code Splitting について](#Code-Splitting-について)
