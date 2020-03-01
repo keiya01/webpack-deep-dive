@@ -1,5 +1,5 @@
-import { map } from 'lodash';
-// import { cube } from './math'; // square()をimportしていない
+// import { map } from 'lodash';
+import { cube } from './math'; // square()をimportしていない
 
 /**
  * このように書いた場合、moduleを書き換える事ができるため、webpackはTree Shakingを行えない
@@ -19,16 +19,16 @@ import { map } from 'lodash';
  * });
  */
 
-// function component() {
-//   const elm = document.createElement('pre');
-//   elm.innerHTML = [
-//     'Hello Webpack',
-//     '5 cubed = ' + cube(5)
-//   ].join('\n\n');
+function component() {
+  const elm = document.createElement('pre');
+  elm.innerHTML = [
+    'Hello Webpack',
+    '5 cubed = ' + cube(5)
+  ].join('\n\n');
 
-//   return elm;
-// }
+  return elm;
+}
 
-map();
+// map();
 
-// document.body.appendChild(component());
+document.body.appendChild(component());

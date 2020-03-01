@@ -19,6 +19,16 @@
 このリポジトリはwebpackについて深く学ぶために、いろいろな設定やbuildプロセスを確認するためのものです。  
 各ディレクトリのREADMEに詳細な説明を加えていきたい
 
+# webpackの最適化
+> 巨大なJS(+最近は in JS された各種SVGやCSS)はダウンロードだけではなく、UIスレッドのCPUをブロックする。
+これはとくにCPUが貧弱な端末で体験が悪化する。そしてビルド時間で開発者体験を阻害する。
+できれば webpack 推奨の 144kb 以内にしたい…が現実的に難しいので、 せめて 350kb ぐらいに抑えたい。  
+SPAなら (ローディングスピナーなどのアニメーションを出した上で) 1.5MB ぐらいに抑えたい。    
+ビルドサイズが 3MB 超えたあたりで、日本の一般的な 4G 環境では使い物にならなくなる。
+
+**参考**  
+Webpack チャンク最適 テクニック - Qiita ... https://qiita.com/mizchi/items/418be9abee5f785696f0
+
 # Code Splitting について  
 
 ## なぜコードを分割するのか
@@ -111,6 +121,25 @@ runtimeをメインのコードから分けるために使用される。`single
 ```
 
 ここで`enforce`を`true`に設定する事で`splitChunks.minSize`、`splitChunks.minChunks`、 `splitChunks.maxAsyncRequests`、 `splitChunks.maxInitialRequests`を無視して`chunk`を作成する。  
+  
+上記の例には少し問題がある。`vendors`を`node_modules`全てを読み込むように指定してしまった場合、1つのコンポーネントでしか使っていない`module`も`vendors`に含まれてしまう事で巨大化してしまい、読み込みが遅くなるし、キャッシュが非効率になる可能性がある。
+
+```json
+  {
+    "optimization": {
+      "runtimeChunk": "single",
+      "cacheGroup": {
+        "vendor": {
+          "test": /react|react-dom|styled-components|react-router/,
+          "name": "vendors",
+          "chunks": "all"
+        }
+      }
+    }
+  }
+```
+
+この辺りの最適化はプロジェクトによっても異なるため、ビルドサイズや実際に読み込まれるファイルのサイズを確認しながら調整して行く形になると考える。
 
 **参照**  
 Cache - Webpack ... https://webpack.js.org/guides/caching/  
