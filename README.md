@@ -2,10 +2,15 @@
 
 - [About](#About)
 - [Code Splitting について](#Code-Splitting-について)
-  - [なぜコードを分割するのか](#なぜコードを分割するのか)
-  - [よくない方法](#よくない方法)
-  - [コードの重複を防ぐ](#コードの重複を防ぐ)
-  - [ダイナミックインポート](#ダイナミックインポート)
+  -[Bundle Splitting](#Bundle-Splitting)
+    - [なぜコードを分割するのか](#なぜコードを分割するのか)
+    - [コードの重複を防ぐ](#コードの重複を防ぐ)
+    - [デフォルトの無駄な設定](#デフォルトの無駄な設定)
+    - [モジュールの分割する](#モジュールの分割する)
+    - [Example](#Example)
+  - [Code Splitting](#Code-Splitting)
+    - [よくない方法](#よくない方法)
+    - [ダイナミックインポート](#ダイナミックインポート)
 - [Minify](#Minify)
 - [Tree Shaking](#Tree-Shaking)
 - [Cache](#Cache)
@@ -29,25 +34,99 @@ SPAなら (ローディングスピナーなどのアニメーションを出し
 **参考**  
 Webpack チャンク最適 テクニック - Qiita ... https://qiita.com/mizchi/items/418be9abee5f785696f0
 
-# Code Splitting について  
+# Code Splitting について
 
-## なぜコードを分割するのか
+Code Splittingには`Bundle Splitting`と`Code Splitting`の２種類ある。
+
+- `Bundle Splitting`はキャッシュを行いやすいようにモジュールを小さく分けて、キャッシュの恩恵をフルに受けられるようにバンドルするもの。
+- `Code Splitting`はユーザーの要求に合わせて、モジュールをリクエストするように設定するもので、いわゆるダイナミックインポートでの読み込みのこと。
+
+最も重要なのは`Bundle Splitting`を理解し、コードをできる限り小さく設定するようにすることである。小さく分割することで、リクエストは増えるが`HTTP2`で通信を行えば、コードの量はボトルネックにはならない(数百ほどにもなると流石に遅延する、、)。
+  
+`HTTP2`の対応状況についてもそこまで気にする必要はないし、サポート外のブラウザを使っているようなユーザーはページの読み込み速度をそこまで気にしないようである。
+
+> If you’re wondering, support for HTTP/2 goes back to IE 11 on Windows 10. I’ve done an exhaustive survey of everyone using an older setup than that and they unanimously assured me that they don’t care how quickly websites load.
+出典: https://medium.com/hackernoon/the-100-correct-way-to-split-your-chunks-with-webpack-f8a9df5b7758
+
+## Bundle Splitting
+
+### コードの重複を防ぐ
+コードの重複を防ぐには、`optimization.splitChunks.chunks`を`all`に設定する。しかし、`optimization.splitChunks.chunks`に直接`all`を指定すると、`splitChunks`の設定をみたす全てのコードが分割されてしまうことで頻繁に内容が更新されるコードも含まれることになり、キャッシュの恩恵を受けられないことがある([optimization.cacheGroups.vendor](#optimization.cacheGroups.vendor))。  
+さらに`webpack`のランタイムを独立させるために、`optimization.runtime = 'single'`を設定するとよい。
+
+### 分割の方法
+Webpackの機能を使ってコード分割を行う。一番簡単な方法として、`entry`に複数のファイルを書いて分割する方法を思いつくかもしれないが、この方法だと、`entry`ファイルのそれぞれにmoduleがバンドルされてしまう。例えば、`index.js`と`another.js`が存在し、`another.js`で`lodash`を使っているが、`index.js`では使っていない状況を考える。この場合、`webpack`を使って`build`すると、`index.js`と`another.js`の両方に`module`がバンドルされてしまう。こうなってしまうとコードを分割してもコード量が増えてしまい、逆にオーバーヘッドになってしまう。これを避けるには`SplitChunksPlugin`を使う必要がある。
+
+### デフォルトの無駄な設定
+
+- 4つ以上のファイルを同時にリクエストしない(`maxInitialRequest`)
+- 30kb以下のファイルは同一ファイルにする設定(`minSize`)
+- これらをOverrideしてリセットする
+
+### モジュールを分割する
+
+- モジュールを分割することでキャッシュの恩恵を最大限受けることができる
+- `HTTP2`を使えば、ファイル数が多くてもボトルネックにはならない
+- しかし数100のモジュールを含んでいる場合、同時接続数の限界に達し、遅延が発生する可能性がある
+- 100以下の場合: 全てのモジュールを分割する
+- 100以上の場合、なかなか更新しない大きいファイルから順に分割していき、頻繁に更新される物はまとめるのが良さそう？
+
+### Example
+
+```js
+
+module.exports = {
+  entry: {
+    main: path.resolve(__dirname, 'src/index.js'),
+    ProductList: path.resolve(__dirname, 'src/ProductList/ProductList.js'),
+    ProductPage: path.resolve(__dirname, 'src/ProductPage/ProductPage.js'),
+    Icon: path.resolve(__dirname, 'src/Icon/Icon.js'),
+  },
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: '[name].[contenthash:8].js',
+  },
+  plugins: [
+    new webpack.HashedModuleIdsPlugin(), // so that file hashes don't change unexpectedly
+  ],
+  optimization: {
+    runtimeChunk: 'single',
+    splitChunks: {
+      chunks: 'all',
+      maxInitialRequests: Infinity,
+      minSize: 0,
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name(module) {
+            // get the name. E.g. node_modules/packageName/not/this/part.js
+            // or node_modules/packageName
+            const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
+
+            // npm package names are URL-safe, but some servers don't like @ symbols
+            return `npm.${packageName.replace('@', '')}`;
+          },
+        },
+      },
+    },
+  },
+};
+
+```
+
+## Code Splitting
+
+### なぜコードを分割するのか
 > コード分割は、ユーザが必要とするコードだけを「遅延読み込み」する手助けとなり、 アプリのパフォーマンスを劇的に向上させることができます。 アプリの全体的なコード量を減らすことはできませんが、ユーザが必要としないコードを読み込まなくて済むため、 初期ロードの際に読む込むコード量を削減できます。 
 
 **参考**  
 Code Splitting - React ... https://ja.reactjs.org/docs/code-splitting.html
 
-## 分割の方法
-Webpackの機能を使ってコード分割を行う。一番簡単な方法として、`entry`に複数のファイルを書いて分割する方法を思いつくかもしれないが、この方法だと、`entry`ファイルのそれぞれにmoduleがバンドルされてしまう。例えば、`index.js`と`another.js`が存在し、`another.js`で`lodash`を使っているが、`index.js`では使っていない状況を考える。この場合、`webpack`を使って`build`すると、`index.js`と`another.js`の両方に`module`がバンドルされてしまう。こうなってしまうとコードを分割してもコード量が増えてしまい、逆にオーバーヘッドになってしまう。これを避けるには`SplitChunksPlugin`を使う必要がある。
-
-## コードの重複を防ぐ
-コードの重複を防ぐには、`optimization.splitChunks.chunks`を`all`に設定する。しかし、`optimization.splitChunks.chunks`に直接`all`を指定すると、`splitChunks`の設定をみたす全てのコードが分割されてしまうことで頻繁に内容が更新されるコードも含まれることになり、キャッシュの恩恵を受けられないことがある([optimization.cacheGroups.vendor](#optimization.cacheGroups.vendor))。  
-
-## ダイナミックインポート
+### ダイナミックインポート
 ダイナミックインポート(`import()`)を使うことで、特定のファイルにbuild時の設定を組み込むことができたり、指定したmoduleを分割することができる。また、Reactを使っている時は、`lazy()`と`Suspense`コンポーネントを使うことで、コードを分割できる。SSRを使用している場合は [loadable-component](https://loadable-components.com/) を使うとコード分割を利用できる。  
 `babel` を使用している場合は、[babel-plugin-syntax-dynamic-import](https://classic.yarnpkg.com/en/package/babel-plugin-syntax-dynamic-import) を使用しないと、`import()`が変換されてしまう可能性があるため、指定しておく。
 
-## Reactにおけるコード分割
+### Reactにおけるコード分割
 - [React.lazy](https://ja.reactjs.org/docs/code-splitting.html#reactlazy) を使用して、Dynamic Import を行い、コードを分割する
   - `React.lazy` は `default export` のみサポートしているため、名前付きエクスポートを使用している場合は、中間モジュールを作成して `export { MyComponent as default } from "./ManyComponents.js";` のようにデフォルトとして、再エクスポートするように実装する。
 - [React.Suspense](https://ja.reactjs.org/docs/code-splitting.html#suspense) を使用して、Dynamic Import を非同期で読み込む
